@@ -33,20 +33,29 @@ jobs:
                     "proxyConfiguration":{"useApifyProxy":True}},
               timeout=30
           )
-          run_id = r.json()["data"]["id"]
-          print(f"Run ID: {run_id}")
+          print(f"Respuesta Apify: {r.status_code} - {r.text[:300]}")
+          resp = r.json()
+          if "data" not in resp:
+              # El actor devolvio error - usar dataset existente directamente
+              print("No se pudo lanzar actor nuevo, usando dataset existente...")
+              run_id = None
+          else:
+              run_id = resp["data"]["id"]
+              print(f"Run ID: {run_id}")
 
           # 2. Esperar resultado
-          for i in range(60):
-              time.sleep(15)
-              estado = requests.get(
-                  f"https://api.apify.com/v2/actor-runs/{run_id}?token={APIFY_TOKEN}",
-                  timeout=15
-              ).json()["data"]["status"]
-              print(f"Estado: {estado}")
-              if estado == "SUCCEEDED": break
-              if estado in ("FAILED","ABORTED"):
-                  raise Exception(f"Actor fallo: {estado}")
+          if run_id:
+              for i in range(60):
+                  time.sleep(15)
+                  estado = requests.get(
+                      f"https://api.apify.com/v2/actor-runs/{run_id}?token={APIFY_TOKEN}",
+                      timeout=15
+                  ).json()["data"]["status"]
+                  print(f"Estado: {estado}")
+                  if estado == "SUCCEEDED": break
+                  if estado in ("FAILED","ABORTED"):
+                      print(f"Actor fallo: {estado}, usando dataset existente")
+                      break
 
           # 3. Descargar resultados
           items = requests.get(
