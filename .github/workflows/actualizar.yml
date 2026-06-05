@@ -25,17 +25,46 @@ jobs:
 
           # Busquedas a realizar
           BUSQUEDAS = [
-              {"operation":"sale","propertyType":"homes","country":"es",
-               "location":"Valles Oriental","maxItems":100,"sortBy":"mostRecent",
-               "proxyConfiguration":{"useApifyProxy":True}},
+              # L'Ametlla del Valles - viviendas hasta 600k
               {"operation":"sale","propertyType":"homes","country":"es",
                "location":"L Ametlla del Valles","maxItems":100,"sortBy":"mostRecent",
-               "maxPrice":"600000",
-               "proxyConfiguration":{"useApifyProxy":True}},
+               "maxPrice":"600000","proxyConfiguration":{"useApifyProxy":True}},
+              # L'Ametlla del Valles - terrenos hasta 200k
               {"operation":"sale","propertyType":"lands","country":"es",
                "location":"L Ametlla del Valles","maxItems":100,"sortBy":"mostRecent",
-               "maxPrice":"200000",
-               "proxyConfiguration":{"useApifyProxy":True}},
+               "maxPrice":"200000","proxyConfiguration":{"useApifyProxy":True}},
+              # Bigues i Riells - viviendas hasta 600k
+              {"operation":"sale","propertyType":"homes","country":"es",
+               "location":"Bigues i Riells","maxItems":50,"sortBy":"mostRecent",
+               "maxPrice":"600000","proxyConfiguration":{"useApifyProxy":True}},
+              # Bigues i Riells - terrenos hasta 200k
+              {"operation":"sale","propertyType":"lands","country":"es",
+               "location":"Bigues i Riells","maxItems":50,"sortBy":"mostRecent",
+               "maxPrice":"200000","proxyConfiguration":{"useApifyProxy":True}},
+              # La Garriga - viviendas hasta 600k
+              {"operation":"sale","propertyType":"homes","country":"es",
+               "location":"La Garriga","maxItems":50,"sortBy":"mostRecent",
+               "maxPrice":"600000","proxyConfiguration":{"useApifyProxy":True}},
+              # La Garriga - terrenos hasta 200k
+              {"operation":"sale","propertyType":"lands","country":"es",
+               "location":"La Garriga","maxItems":50,"sortBy":"mostRecent",
+               "maxPrice":"200000","proxyConfiguration":{"useApifyProxy":True}},
+              # Les Franqueses del Valles - viviendas hasta 600k
+              {"operation":"sale","propertyType":"homes","country":"es",
+               "location":"Les Franqueses del Valles","maxItems":50,"sortBy":"mostRecent",
+               "maxPrice":"600000","proxyConfiguration":{"useApifyProxy":True}},
+              # Les Franqueses del Valles - terrenos hasta 200k
+              {"operation":"sale","propertyType":"lands","country":"es",
+               "location":"Les Franqueses del Valles","maxItems":50,"sortBy":"mostRecent",
+               "maxPrice":"200000","proxyConfiguration":{"useApifyProxy":True}},
+              # Santa Eulalia de Roncana - viviendas hasta 600k
+              {"operation":"sale","propertyType":"homes","country":"es",
+               "location":"Santa Eulalia de Roncana","maxItems":50,"sortBy":"mostRecent",
+               "maxPrice":"600000","proxyConfiguration":{"useApifyProxy":True}},
+              # Santa Eulalia de Roncana - terrenos hasta 200k
+              {"operation":"sale","propertyType":"lands","country":"es",
+               "location":"Santa Eulalia de Roncana","maxItems":50,"sortBy":"mostRecent",
+               "maxPrice":"200000","proxyConfiguration":{"useApifyProxy":True}},
           ]
 
           def lanzar_y_esperar(input_data):
