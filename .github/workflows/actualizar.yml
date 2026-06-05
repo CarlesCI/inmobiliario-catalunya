@@ -20,51 +20,52 @@ jobs:
 
           APIFY_TOKEN = "${{ secrets.APIFY_TOKEN }}"
           ACTOR_ID    = "igolaizola/idealista-scraper"
-          DATASET_ID  = "${{ secrets.APIFY_DATASET_ID }}"
           JSONBIN_KEY = "${{ secrets.JSONBIN_KEY }}"
           JSONBIN_BIN = "${{ secrets.JSONBIN_BIN }}"
 
-          # 1. Lanzar actor
-          print("Lanzando actor Apify...")
-          r = requests.post(
-              f"https://api.apify.com/v2/acts/{ACTOR_ID}/runs?token={APIFY_TOKEN}",
-              json={"operation":"sale","propertyType":"homes","country":"es",
-                    "location":"Valles Oriental","maxItems":100,"sortBy":"mostRecent",
-                    "proxyConfiguration":{"useApifyProxy":True}},
-              timeout=30
-          )
-          print(f"Respuesta Apify: {r.status_code} - {r.text[:300]}")
-          resp = r.json()
-          if "data" not in resp:
-              # El actor devolvio error - usar dataset existente directamente
-              print("No se pudo lanzar actor nuevo, usando dataset existente...")
-              run_id = None
-          else:
-              run_id = resp["data"]["id"]
-              print(f"Run ID: {run_id}")
+          # Busquedas a realizar
+          BUSQUEDAS = [
+              {"operation":"sale","propertyType":"homes","country":"es",
+               "location":"Valles Oriental","maxItems":100,"sortBy":"mostRecent",
+               "proxyConfiguration":{"useApifyProxy":True}},
+              {"operation":"sale","propertyType":"homes","country":"es",
+               "location":"L Ametlla del Valles","maxItems":100,"sortBy":"mostRecent",
+               "maxPrice":"600000",
+               "proxyConfiguration":{"useApifyProxy":True}},
+              {"operation":"sale","propertyType":"lands","country":"es",
+               "location":"L Ametlla del Valles","maxItems":100,"sortBy":"mostRecent",
+               "maxPrice":"200000",
+               "proxyConfiguration":{"useApifyProxy":True}},
+          ]
 
-          # 2. Esperar resultado
-          if run_id:
+          def lanzar_y_esperar(input_data):
+              r = requests.post(
+                  f"https://api.apify.com/v2/acts/{ACTOR_ID}/runs?token={APIFY_TOKEN}",
+                  json=input_data, timeout=30
+              )
+              print(f"  Apify {r.status_code}: {r.text[:200]}")
+              resp = r.json()
+              if "data" not in resp:
+                  print("  No se pudo lanzar")
+                  return None
+              run_id = resp["data"]["id"]
+              dataset_id = resp["data"]["defaultDatasetId"]
+              print(f"  Run: {run_id}")
               for i in range(60):
                   time.sleep(15)
                   estado = requests.get(
                       f"https://api.apify.com/v2/actor-runs/{run_id}?token={APIFY_TOKEN}",
                       timeout=15
                   ).json()["data"]["status"]
-                  print(f"Estado: {estado}")
-                  if estado == "SUCCEEDED": break
+                  print(f"  Estado: {estado}")
+                  if estado == "SUCCEEDED":
+                      return dataset_id
                   if estado in ("FAILED","ABORTED"):
-                      print(f"Actor fallo: {estado}, usando dataset existente")
-                      break
+                      print(f"  Fallo: {estado}")
+                      return None
+              return None
 
-          # 3. Descargar resultados
-          items = requests.get(
-              f"https://api.apify.com/v2/datasets/{DATASET_ID}/items?token={APIFY_TOKEN}&limit=100",
-              timeout=30
-          ).json()
-          print(f"Items: {len(items)}")
-
-          # 4. Comparar con datos anteriores
+          # Obtener datos anteriores para comparar
           try:
               prev = requests.get(
                   f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN}/latest",
@@ -74,18 +75,50 @@ jobs:
           except:
               prev_urls = set()
 
-          # 5. Convertir formato
+          # Ejecutar todas las busquedas
+          todos_items = []
+          for i, busqueda in enumerate(BUSQUEDAS):
+              print(f"\nBusqueda {i+1}/{len(BUSQUEDAS)}: {busqueda['propertyType']} en {busqueda['location']}")
+              dataset_id = lanzar_y_esperar(busqueda)
+              if dataset_id:
+                  items = requests.get(
+                      f"https://api.apify.com/v2/datasets/{dataset_id}/items?token={APIFY_TOKEN}&limit=100",
+                      timeout=30
+                  ).json()
+                  print(f"  Items descargados: {len(items)}")
+                  todos_items.extend(items)
+
+          print(f"\nTotal items: {len(todos_items)}")
+
+          # Eliminar duplicados por URL
+          vistos = set()
+          items_unicos = []
+          for it in todos_items:
+              u = it.get("url","")
+              if u and u not in vistos:
+                  vistos.add(u)
+                  items_unicos.append(it)
+
+          print(f"Items unicos: {len(items_unicos)}")
+
+          # Convertir formato
           propiedades = []
-          for it in items:
+          for it in items_unicos:
               fotos = [img["url"] for img in it.get("multimedia",{}).get("images",[])[:3]]
               desc  = (it.get("description") or "")[:200]
               propiedades.append({
-                  "portal":"Idealista","titulo":it.get("address",""),
-                  "precio":it.get("price"),"precio_m2":it.get("priceByArea"),
-                  "metros":it.get("size"),"habitaciones":it.get("rooms"),
-                  "banos":it.get("bathrooms"),"tipo":it.get("propertyType",""),
-                  "descripcion":desc,"ubicacion":it.get("municipality",""),
-                  "lat":it.get("latitude"),"lon":it.get("longitude"),
+                  "portal":"Idealista",
+                  "titulo":it.get("address",""),
+                  "precio":it.get("price"),
+                  "precio_m2":it.get("priceByArea"),
+                  "metros":it.get("size"),
+                  "habitaciones":it.get("rooms"),
+                  "banos":it.get("bathrooms"),
+                  "tipo":it.get("propertyType",""),
+                  "descripcion":desc,
+                  "ubicacion":it.get("municipality",""),
+                  "lat":it.get("latitude"),
+                  "lon":it.get("longitude"),
                   "fotos":fotos,
                   "piscina":it.get("features",{}).get("hasSwimmingPool",False),
                   "jardin":it.get("features",{}).get("hasGarden",False),
@@ -96,10 +129,15 @@ jobs:
 
           nuevos = [p for p in propiedades if p["url"] not in prev_urls]
 
-          # 6. Subir a JSONBin
-          datos = {"ultima_actualizacion": datetime.utcnow().isoformat(),
-                   "total": len(propiedades), "propiedades": propiedades}
-          body  = json.dumps(datos, ensure_ascii=False)
+          # Subir a JSONBin
+          ahora = datetime.utcnow().strftime("%d/%m/%Y %H:%M")
+          datos = {
+              "ultima_actualizacion": datetime.utcnow().isoformat(),
+              "ultima_actualizacion_texto": f"Actualizado el {ahora} UTC",
+              "total": len(propiedades),
+              "propiedades": propiedades
+          }
+          body = json.dumps(datos, ensure_ascii=False)
 
           # Reducir si supera 95KB
           if len(body.encode()) > 95000:
@@ -116,7 +154,7 @@ jobs:
               timeout=20
           )
           print(f"JSONBin status: {r.status_code}")
-          print(f"RESULTADO: {len(propiedades)} propiedades, {len(nuevos)} NUEVAS")
+          print(f"RESULTADO: {len(propiedades)} propiedades totales, {len(nuevos)} NUEVAS")
           for n in nuevos[:10]:
               print(f"  NUEVA: {n['titulo']} - {n['precio']}EUR")
           EOF
