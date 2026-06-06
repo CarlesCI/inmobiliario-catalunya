@@ -19,30 +19,28 @@ jobs:
           from datetime import datetime
 
           APIFY_TOKEN = "${{ secrets.APIFY_TOKEN }}"
-          ACTOR_ID    = "dz_omar~idealista-scraper-api"
+          ACTOR_ID    = "crawlerbros~idealista-scraper"
           JSONBIN_KEY = "${{ secrets.JSONBIN_KEY }}"
           JSONBIN_BIN = "${{ secrets.JSONBIN_BIN }}"
 
-          # URLs de busqueda de Idealista
-          URLS = [
-              # Viviendas hasta 600k
-              "https://www.idealista.com/venta-viviendas/barcelona/valles-oriental/lametlla-del-valles/?ordenado-por=fecha-publicacion-desc&precioMaximo=600000",
-              "https://www.idealista.com/venta-viviendas/barcelona/valles-oriental/bigues-i-riells/?ordenado-por=fecha-publicacion-desc&precioMaximo=600000",
-              "https://www.idealista.com/venta-viviendas/barcelona/valles-oriental/la-garriga/?ordenado-por=fecha-publicacion-desc&precioMaximo=600000",
-              "https://www.idealista.com/venta-viviendas/barcelona/valles-oriental/les-franqueses-del-valles/?ordenado-por=fecha-publicacion-desc&precioMaximo=600000",
-              "https://www.idealista.com/venta-viviendas/barcelona/valles-oriental/santa-eulalia-de-roncana/?ordenado-por=fecha-publicacion-desc&precioMaximo=600000",
-              # Terrenos hasta 200k
-              "https://www.idealista.com/venta-terrenos/barcelona/valles-oriental/lametlla-del-valles/?ordenado-por=fecha-publicacion-desc&precioMaximo=200000",
-              "https://www.idealista.com/venta-terrenos/barcelona/valles-oriental/bigues-i-riells/?ordenado-por=fecha-publicacion-desc&precioMaximo=200000",
-              "https://www.idealista.com/venta-terrenos/barcelona/valles-oriental/la-garriga/?ordenado-por=fecha-publicacion-desc&precioMaximo=200000",
-              "https://www.idealista.com/venta-terrenos/barcelona/valles-oriental/les-franqueses-del-valles/?ordenado-por=fecha-publicacion-desc&precioMaximo=200000",
-              "https://www.idealista.com/venta-terrenos/barcelona/valles-oriental/santa-eulalia-de-roncana/?ordenado-por=fecha-publicacion-desc&precioMaximo=200000",
+          # Busquedas a realizar
+          BUSQUEDAS = [
+              {"location":"lametlla-del-valles","operation":"sale","propertyType":"homes","country":"es","maxPrice":600000,"maxItems":100},
+              {"location":"lametlla-del-valles","operation":"sale","propertyType":"lands","country":"es","maxPrice":200000,"maxItems":50},
+              {"location":"bigues-i-riells","operation":"sale","propertyType":"homes","country":"es","maxPrice":600000,"maxItems":50},
+              {"location":"bigues-i-riells","operation":"sale","propertyType":"lands","country":"es","maxPrice":200000,"maxItems":50},
+              {"location":"la-garriga","operation":"sale","propertyType":"homes","country":"es","maxPrice":600000,"maxItems":50},
+              {"location":"la-garriga","operation":"sale","propertyType":"lands","country":"es","maxPrice":200000,"maxItems":50},
+              {"location":"les-franqueses-del-valles","operation":"sale","propertyType":"homes","country":"es","maxPrice":600000,"maxItems":50},
+              {"location":"les-franqueses-del-valles","operation":"sale","propertyType":"lands","country":"es","maxPrice":200000,"maxItems":50},
+              {"location":"santa-eulalia-de-roncana","operation":"sale","propertyType":"homes","country":"es","maxPrice":600000,"maxItems":50},
+              {"location":"santa-eulalia-de-roncana","operation":"sale","propertyType":"lands","country":"es","maxPrice":200000,"maxItems":50},
           ]
 
-          def lanzar_y_esperar(urls_batch):
+          def lanzar_y_esperar(input_data):
               r = requests.post(
                   f"https://api.apify.com/v2/acts/{ACTOR_ID}/runs?token={APIFY_TOKEN}",
-                  json={"urls": [{"url": u} for u in urls_batch], "maxResults": 100},
+                  json=input_data,
                   timeout=30
               )
               print(f"  Apify {r.status_code}: {r.text[:200]}")
@@ -77,19 +75,20 @@ jobs:
           except:
               prev_urls = set()
 
-          # Ejecutar en un solo batch
+          # Ejecutar todas las busquedas
           todos_items = []
-          print(f"\nLanzando scraper con {len(URLS)} URLs...")
-          dataset_id = lanzar_y_esperar(URLS)
-          if dataset_id:
-              items = requests.get(
-                  f"https://api.apify.com/v2/datasets/{dataset_id}/items?token={APIFY_TOKEN}&limit=500",
-                  timeout=30
-              ).json()
-              print(f"Items descargados: {len(items)}")
-              if items:
-                  print(f"  Ejemplo item: {json.dumps(items[0], ensure_ascii=False)[:500]}")
-              todos_items.extend(items)
+          for i, busqueda in enumerate(BUSQUEDAS):
+              print(f"\nBusqueda {i+1}/{len(BUSQUEDAS)}: {busqueda['propertyType']} en {busqueda['location']}")
+              dataset_id = lanzar_y_esperar(busqueda)
+              if dataset_id:
+                  items = requests.get(
+                      f"https://api.apify.com/v2/datasets/{dataset_id}/items?token={APIFY_TOKEN}&limit=100",
+                      timeout=30
+                  ).json()
+                  print(f"  Items: {len(items)}")
+                  if items:
+                      print(f"  Ejemplo: {json.dumps(items[0], ensure_ascii=False)[:300]}")
+                  todos_items.extend(items)
 
           print(f"\nTotal items: {len(todos_items)}")
 
