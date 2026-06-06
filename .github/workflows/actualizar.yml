@@ -87,6 +87,8 @@ jobs:
                   timeout=30
               ).json()
               print(f"Items descargados: {len(items)}")
+              if items:
+                  print(f"  Ejemplo item: {json.dumps(items[0], ensure_ascii=False)[:500]}")
               todos_items.extend(items)
 
           print(f"\nTotal items: {len(todos_items)}")
